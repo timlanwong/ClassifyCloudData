@@ -1,6 +1,6 @@
 ---
-title: "project2Min"
-author: "Minjeong Kim"
+title: "project2CloudData"
+author: "Minjeong Kim and Timlan Wong"
 date: "April 27, 2019"
 output: html_document
 editor_options: 
