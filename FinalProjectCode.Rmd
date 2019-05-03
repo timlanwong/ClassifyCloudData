@@ -1,0 +1,330 @@
+---
+title: "project2Min"
+author: "Minjeong Kim"
+date: "April 27, 2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(ggplot2)
+library(corrplot)
+```
+
+###Reading the Data in and Cleaning
+```{r}
+image_1 = read.table("~/Downloads/image1.txt", header = FALSE)
+image_2 = read.table("~/Downloads/image2.txt", header = FALSE)
+image_3 = read.table("~/Downloads/image3.txt", header = FALSE)
+names(image_1) <- c("y_coordinate", "x_coordinate", "expertlabel", "ndai", "sd", "corr", "df", "cf", "bf", "af", "an")
+names(image_2) <- c("y_coordinate", "x_coordinate", "expertlabel", "ndai", "sd", "corr", "df", "cf", "bf", "af", "an")
+names(image_3) <- c("y_coordinate", "x_coordinate", "expertlabel", "ndai", "sd", "corr", "df", "cf", "bf", "af", "an")
+```
+
+###Question 1b) Beautiful maps (Figure 1-2)
+```{r}
+ggplot(data = image_1) + geom_point(aes(x = x_coordinate, y = y_coordinate, color = expertlabel)) + xlab("x coordinate") + ylab("y coordinate") + ggtitle("Image 1 X and Y coordinates based with color of region based on expert label")
+
+ggplot(data = image_2) + geom_point(aes(x = x_coordinate, y = y_coordinate, color = expertlabel)) + xlab("x coordinate") + ylab("y coordinate") + ggtitle("Image 2 X and Y coordinates based with color of region based on expert label")
+
+ggplot(data = image_3) + geom_point(aes(x = x_coordinate, y = y_coordinate, color = expertlabel)) + xlab("x coordinate") + ylab("y coordinate") + ggtitle("Image 3 X and Y coordinates based with color of region based on expert label")
+```
+
+###Question 1c) EDA (Figure 3-4)
+```{r}
+image_df = rbind(image_1, image_2, image_3)
+image_df = image_df[!image_df$expertlabel ==0, ]
+image_df$expertlabel = factor(image_df$expertlabel)
+
+corrplot(cor(image_df), method="circle")
+
+##expert label with NDAI
+ggplot(data = image_df) + geom_boxplot((aes(x=expertlabel,y=ndai))) + xlab("Expert Label") + ylab("NDAI") + ggtitle("Boxplots of Expert Label and NDAI")
+
+ggplot(data = image_df) + geom_boxplot((aes(x=expertlabel,y=sd))) + xlab("Expert Label") + ylab("SD") + ggtitle("Boxplots of Expert Label and SD") + ylim(c(0, 30))
+```
+
+###Question 2a) Main Method of Splitting Blocking based on Geographical X and Y coordinate) 
+```{r}
+get_split = function(n = 100, train_prop = 0.7, validation = 0.1, our_data) {
+  set.seed(7)
+  our_data = our_data[!our_data$expertlabel == 0, ]
+  range_x = range(our_data$x_coordinate)
+  range_y = range(our_data$y_coordinate)
+  our_data <- within(our_data, {
+    grp.x = cut(x_coordinate, seq(range_x[1]- 1, range_x[2] + 1, length.out = n), labels = FALSE)
+    grp.y = cut(y_coordinate, seq(range_y[1] - 1,range_y[2] + 1, length.out = n), labels = FALSE)
+  })
+  
+  df_1 = transform(our_data, groups = paste0(grp.x,grp.y))
+  df_1$groups = as.numeric(df_1$groups)
+  all_group = unique(df_1$groups)
+  all_groups = 1:length(all_group)
+  
+  index_train = sample(all_groups, size = ceiling(length(all_groups)*train_prop))
+  new_groups = all_groups[-index_train]
+  index_validation = sample(new_groups, size = ceiling(length(all_groups)*validation))
+  index_test = all_groups[-c(index_train, index_validation)]
+  
+  train_groups = all_group[index_train]
+  validation_groups = all_group[index_validation]
+  test_groups = all_group[index_test]
+  
+  train = df_1[df_1$groups %in% train_groups, ]
+  validation = df_1[df_1$groups %in% validation_groups, ]
+  test = df_1[df_1$groups %in% test_groups, ]
+  listed_return = list(train, validation, test)
+  return(listed_return)
+}
+
+a = get_split(our_data = image_1)
+
+big_train_df = data.frame()
+big_validation_df = data.frame()
+big_test_df = data.frame()
+
+big_train_df = rbind(big_train_df, a[[1]])
+big_validation_df = rbind(big_validation_df, a[[2]])
+big_test_df = rbind(big_test_df, a[[3]])
+
+a = get_split(our_data = image_2)
+
+big_train_df = rbind(big_train_df, a[[1]])
+big_validation_df = rbind(big_validation_df, a[[2]])
+big_test_df = rbind(big_test_df, a[[3]])
+
+a = get_split(our_data = image_3)
+
+big_train_df = rbind(big_train_df, a[[1]])
+big_validation_df = rbind(big_validation_df, a[[2]])
+big_test_df = rbind(big_test_df, a[[3]])
+```
+
+###Question 2a) Second Method of Splitting based on Blocking on NDAI
+```{r}
+#Use conctaneated image 1 2 3 df without 0 expert label
+image_df$ndai_group = cut(image_df$ndai,  seq(-2, 5, length.out = 1000), labels = FALSE)
+
+all_group = unique(image_df$ndai_group)
+all_groups = 1:length(all_group)
+
+index_train = sample(all_groups, size = ceiling(length(all_groups)*train_prop))
+new_groups = all_groups[-index_train]
+index_validation = sample(new_groups, size = ceiling(length(all_groups)*validation))
+index_test = all_groups[-c(index_train, index_validation)]
+
+train_groups = all_group[index_train]
+validation_groups = all_group[index_validation]
+test_groups = all_group[index_test]
+
+train = df_1[df_1$groups %in% train_groups, ]
+validation = df_1[df_1$groups %in% validation_groups, ]
+test = df_1[df_1$groups %in% test_groups, ]
+listed_return = list(train, validation, test)
+
+train = df_1[index_train, ]
+validation = df_1[index_validation, ]
+test = df_1[index_test,]
+listed_return = list(train, validation, test)
+```
+
+###Question 2b) trivial classifier for validation set
+```{r}
+validation_accuracy = mean(big_validation_df$expertlabel == -1)
+cat("Validation Accuracy: ", validation_accuracy)
+```
+
+###Question 2b) trivial classifier for testing set
+```{r}
+test_accuracy = mean(big_test_df$expertlabel == -1)
+cat("Test Accuracy: ", test_accuracy)
+```
+
+###Question 2c) Choosing predictions Visual way (Figure 6)
+```{r}
+ggplot(data = image_df) + geom_point(aes(x = x_coordinate, y = y_coordinate, color = expertlabel)) + xlab("x coordinate") + ylab("y coordinate") + ggtitle("X and Y coordinates based with color of region based on expert label")
+```
+
+###Question 2c) Choosing predictions Quantitative way (Table 1)
+```{r}
+logistic_model = glm(expertlabel ~ y_coordinate + x_coordinate + ndai + sd + corr , family=binomial() ,data = image_df)
+
+importance = step(logistic_model, direction = "backward")
+summary(importance)
+```
+
+
+###Question 2d) CVGeneric
+```{r}
+CV_generic <- function(classifier, training_features, training_labels, num_folds_k, loss_function) {
+  training_features$labels <- training_labels
+  folds <- createFolds(training_features$labels, k = num_folds_k)
+  for (j in 1:num_folds_k) {
+    valIndexes <- folds[[j]]
+    CVTrain <- training_features[valIndexes, ]
+    CVTest <- training_features[-valIndexes, ]
+    model <- train(CVTrain[, names(training_features) != "labels"], CVTrain$labels, method = classifier, number = num_folds_k, metric = "Accuracy")
+    predicted <- predict(model, CVTest)
+  }
+
+  loss <- loss_function(as.numeric(CVTest$labels), predicted)
+  return (loss)
+  }
+```
+
+
+###Question 3 Modelling) KNN
+```{r}
+library(caret);
+combined_df = rbind(big_train_df, big_validation_df)
+combined_df$expertlabel = factor(combined_df$expertlabel)
+feature_index =  c(1, 2, 4, 5, 6)
+test_data = big_test_df
+test_data$expertlabel = factor(test_data$expertlabel)
+
+train_control <- trainControl(method="cv", number=5)
+training_features = combined_df[, feature_index]
+training_response = combined_df$expertlabel
+knn = train(training_features, training_response, method = "knn", trControl = train_control, tuneGrid = expand.grid(k = 2:10))
+test_data = big_test_df
+accuracy_knn_train = 0.976896
+accuracy_knn_test = mean(test_data$expertlabel == predict(knn, test_data[, feature_index]))
+```
+
+###Question 3 Modelling) Logistic Regression
+```{r}
+logistic_model = train(expertlabel ~ x_coordinate + y_coordinate + ndai + sd + corr, data = combined_df, 
+                            method = "glm", family = binomial(),
+                            trControl = train_control,
+                            trace = FALSE)
+
+accuracy_logistic_train = 0.8938436
+accuracy_logistic_test = mean(test_data$expertlabel == predict(logistic_model, test_data[, feature_index], type = "raw"))
+```
+
+###Question 3 Modelling) Support Vector Machine
+```{r}
+svm_model = train(expertlabel ~ x_coordinate + y_coordinate + ndai + sd + corr,  data=combined_df, method="svmRadial", family="binomial", trControl = train_control)
+
+accuracy_svm_train = 0.9679788
+accuracy_svm_test = mean(test_data$expertlabel == predict(svm_model, test_data[, feature_index]))
+```
+
+###Question 3 Modelling) Tree Model
+```{r}
+tree_model = train(expertlabel ~ x_coordinate + y_coordinate + ndai + sd + corr,  data=combined_df, method="rpart", trControl = train_control)
+
+accuracy_tree_train = 0.9129354
+accuracy_tree_test = mean(test_data$expertlabel == predict(tree_model, test_data[, feature_index]))
+```
+
+
+###Question 3) Final Result (Table 2)
+```{r}
+matrix(c(accuracy_knn_train, accuracy_knn_test, accuracy_logistic_train, accuracy_logistic_test, accuracy_svm_train, accuracy_svm_test, accuracy_tree_train, accuracy_tree_test), nrow = 4,byrow = TRUE, dimnames = list(c("KNN","Logistic", "SVM", "Classification Tree"), c("CV_Train_Accuracy", "Test_Accuracy")))
+```
+
+###Question 3) ROC Curves (Figure 7)
+```{r}
+library(ROCR); 
+knn_predictions = predict(knn, test_data[, feature_index])
+logistic_predictions = predict(logistic_model, test_data[, feature_index], type = "raw")
+svm_predictions = predict(svm_model, test_data[, feature_index])
+tree_predictions = predict(tree_model, test_data[, feature_index])
+
+preds_list <- list(as.numeric(knn_predictions), as.numeric(logistic_predictions), as.numeric(svm_predictions), as.numeric(tree_predictions))
+m <- length(preds_list)
+actuals_list <- rep(list(test_data$expertlabel), m)
+pred <- prediction(preds_list, actuals_list)
+rocs <- performance(pred, "tpr", "fpr")
+plot(rocs, col = as.list(1:m), main = "Test Set ROC Curves")
+points(x = 0.033, y = 0.97, pch = 19,col = "red")
+legend(x = "bottomright", legend = c("SVM", "Logistic", "KNN", "Tree"), fill = 1:m)
+```
+
+
+###Question 4) Looking at Cross Validated optimal K values for KNN (Figure 8)
+```{r}
+plot(knn)
+```
+
+###Question 4) Creating different split and checking robustness of model (rerun this 5 times) (Table 3)
+```{r}
+#choose different i values for 5 different runs
+i = 5
+get_split = function(n = 100, train_prop = 0.7, validation = 0.1, our_data) {
+  set.seed(i)
+  our_data = our_data[!our_data$expertlabel == 0, ]
+  range_x = range(our_data$x_coordinate)
+  range_y = range(our_data$y_coordinate)
+  our_data <- within(our_data, {
+    grp.x = cut(x_coordinate, seq(range_x[1]- 1, range_x[2] + 1, length.out = n), labels = FALSE)
+    grp.y = cut(y_coordinate, seq(range_y[1] - 1,range_y[2] + 1, length.out = n), labels = FALSE)
+  })
+  
+  df_1 = transform(our_data, groups = paste0(grp.x,grp.y))
+  
+  all_groups = unique(df_1$groups)
+  all_index = 1:length(df_1$groups)
+  
+  index_train = sample(all_index, size = ceiling(length(all_index)*train_prop))
+  new_groups = all_index[-index_train]
+  index_validation = sample(new_groups, size = ceiling(length(all_index)*validation))
+  index_test = all_index[-c(index_train, index_validation)]
+  
+  train = df_1[index_train, ]
+  validation = df_1[index_validation, ]
+  test = df_1[index_test,]
+  listed_return = list(train, validation, test)
+  return(listed_return)
+}
+
+a = get_split(our_data = image_1)
+
+big_train_df = data.frame()
+big_validation_df = data.frame()
+big_test_df = data.frame()
+
+big_train_df = rbind(big_train_df, a[[1]])
+big_validation_df = rbind(big_validation_df, a[[2]])
+big_test_df = rbind(big_test_df, a[[3]])
+
+a = get_split(our_data = image_2)
+
+big_train_df = rbind(big_train_df, a[[1]])
+big_validation_df = rbind(big_validation_df, a[[2]])
+big_test_df = rbind(big_test_df, a[[3]])
+
+a = get_split(our_data = image_3)
+
+big_train_df = rbind(big_train_df, a[[1]])
+big_validation_df = rbind(big_validation_df, a[[2]])
+big_test_df = rbind(big_test_df, a[[3]])
+
+combined_df = rbind(big_train_df, big_validation_df)
+combined_df$expertlabel = factor(combined_df$expertlabel)
+feature_index =  c(1, 2, 4, 5, 6)
+test_data = big_test_df
+test_data$expertlabel = factor(test_data$expertlabel)
+
+train_control <- trainControl(method="cv", number=5)
+training_features = combined_df[, feature_index]
+training_response = combined_df$expertlabel
+knn = train(training_features, training_response, method = "knn", trControl = train_control, tuneGrid = expand.grid(k = 1:25))
+test_data = big_test_df
+accuracy_knn_train = 0.9703156
+accuracy_knn_test = mean(test_data$expertlabel == predict(knn, test_data[, feature_index]))
+```
+
+###Question 4) Seeing which parts we are missclassfying (Figure 9)
+```{r}
+test_data$missclassified_label = NA
+test_data$missclassified_label[test_data$expertlabel == svm_predictions] = "Correct"
+test_data$missclassified_label[!(test_data$expertlabel == svm_predictions)] = "Missclassified"
+test_data$predictions = svm_predictions
+
+ggplot(data = test_data) + geom_point(aes(x = x_coordinate, y = y_coordinate, color = factor(missclassified_label))) + xlab("x coordinate") + ylab("y coordinate") + ggtitle("Color by Areas of Missclassification")
+
+```
+
